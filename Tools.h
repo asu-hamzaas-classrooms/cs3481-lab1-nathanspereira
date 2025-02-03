@@ -7,6 +7,7 @@ class Tools
 {
    public:
       static uint64_t buildLong(uint8_t bytes[LONGSIZE]);
+      
       static uint64_t getByte(uint64_t ul, int32_t byteNum);
       static uint64_t getBits(uint64_t source, int32_t low, int32_t high);
       static uint64_t clearBits(uint64_t source, int32_t low, int32_t high);

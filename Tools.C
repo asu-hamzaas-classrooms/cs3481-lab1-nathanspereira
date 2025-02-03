@@ -3,6 +3,7 @@
 #include <string>
 #include "Tools.h"
 
+
 /*
  * Hints/Notes:
  * 1) Pay attention to what the comments say. 
@@ -45,11 +46,11 @@ uint64_t Tools::buildLong(uint8_t bytes[LONGSIZE])
 {
   uint64_t myLong = 0;
   
-  for (int i = LONGSIZE - 1; i > -1; i--) // goes through each index
+  for (int i = LONGSIZE - 1; i >= 0 ; i--) // goes through each index from back of array to front
   {
-    myLong = (myLong << 2) || bytes[i];
+    myLong = myLong << 8; // slides "blank paper" over
+    myLong = myLong | bytes[i]; // "holepunches" the values onto the paper
   }
-  
   return myLong;
 }
 
@@ -74,7 +75,18 @@ uint64_t Tools::buildLong(uint8_t bytes[LONGSIZE])
 */
 uint64_t Tools::getByte(uint64_t source, int32_t byteNum)
 {
-
+ uint64_t select = 0x00000000000000FF;
+ if (byteNum > 7 || byteNum < 0)
+ {
+  select = 0;
+ }
+ else 
+ {
+  select = select << (byteNum * 8);
+  select = (select & source);
+  select = select >> (byteNum * 8);
+ }
+ return select;
 }
 
 /**
@@ -104,7 +116,18 @@ uint64_t Tools::getByte(uint64_t source, int32_t byteNum)
  */
 uint64_t Tools::getBits(uint64_t source, int32_t low, int32_t high)
 {
-  return 0;
+  if (low > 63 || low < 0 || high > 63 || high < 0)
+  {
+    return 0;
+  }
+  else
+  {
+   source = source >> low;
+   source = source << (63 - (high - low));
+   source = source >> (63 - (high - low));
+   return source;
+  }
+
 }
 
 
@@ -132,7 +155,17 @@ uint64_t Tools::getBits(uint64_t source, int32_t low, int32_t high)
  */
 uint64_t Tools::setBits(uint64_t source, int32_t low, int32_t high)
 {
-  return 0;
+  uint64_t select = 0xffffffffffffffff;
+    if (low > 63 || low < 0 || high > 63 || high < 0 || low > high)
+  {
+    return source;
+  }
+  else
+  {
+    select = select >> (63 - (high - low));
+    select = select << low;
+    return source | select;
+  }
 }
 
 /**
@@ -157,7 +190,18 @@ uint64_t Tools::setBits(uint64_t source, int32_t low, int32_t high)
  */
 uint64_t Tools::clearBits(uint64_t source, int32_t low, int32_t high)
 {
-  return 0;
+    uint64_t select = 0xffffffffffffffff;
+    if (low > 63 || low < 0 || high > 63 || high < 0 || low > high)
+  {
+    return source;
+  }
+  else
+  {
+    select = select >> (63 - (high - low));
+    select = select << low;
+    source = (source & (~select));
+    return source;
+  }
 }
 
 
@@ -188,7 +232,18 @@ uint64_t Tools::clearBits(uint64_t source, int32_t low, int32_t high)
 uint64_t Tools::copyBits(uint64_t source, uint64_t dest, 
                          int32_t srclow, int32_t dstlow, int32_t length)
 {
-   return 0; 
+   uint64_t result = 0;
+   uint64_t filler = 0;
+   if (srclow > 63 || srclow < 0 || dstlow > 63 || dstlow < 0 || length > 63 || srclow + length - 1 > 64 || dstlow + length - 1 > 63) 
+   {
+    return dest;
+   }
+   else
+   {
+    result = clearBits(dest, dstlow, dstlow + length - 1);
+    filler = getBits(source, srclow, srclow + length - 1) << dstlow;
+    return result | filler;
+   }
 }
 
 
@@ -213,7 +268,10 @@ uint64_t Tools::copyBits(uint64_t source, uint64_t dest,
  */
 uint64_t Tools::setByte(uint64_t source, int32_t byteNum)
 {
-  return 0;
+  uint64_t mask = (((int64_t)!(byteNum >> 3)<< 63) >> 63); //builds fff... or 0000...
+  mask = mask >> 56;
+  mask = mask << (byteNum * 8);
+  return source | mask;
 }
 
 
@@ -235,7 +293,8 @@ uint64_t Tools::setByte(uint64_t source, int32_t byteNum)
  */
 uint64_t Tools::sign(uint64_t source)
 {
-  return 0;
+  source = getBits(source, 63, 63);
+  return source && 1;
 }
 
 /**
@@ -265,7 +324,18 @@ bool Tools::addOverflow(uint64_t op1, uint64_t op2)
   //      Thus, the way to check for an overflow is to compare the signs of the
   //      operand and the result.  For example, if you add two positive numbers, 
   //      the result should be positive, otherwise an overflow occurred.
-  return false;
+  bool one = sign(op1);
+  bool two = sign(op2);
+  bool three = sign(op1 + op2);
+  if (one == 0 && two == 0)
+  {
+    return (three == 1);
+  }
+  if (one == 1 && two == 1)
+  {
+    return (three == 0);
+  }
+  return 0;
 }
 
 /**
@@ -294,5 +364,5 @@ bool Tools::subOverflow(uint64_t op1, uint64_t op2)
   //Note: you can not simply use addOverflow in this function.  If you negate
   //op1 in order to an add, you may get an overflow. 
   //NOTE: the subtraction is op2 - op1 (not op1 - op2).
-  return false;
+ return (sign(op2-op1) != sign(op2)) && (sign(op1)!= sign(op2));
 }
